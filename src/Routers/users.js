@@ -1,10 +1,11 @@
 const router = new require("express").Router();
+const multer = require('multer');
+const sharp = require('sharp');
 const User = require("../models/users");
 const auth = require("../middleware/auth");
 
 router.post("/users", async (req, res) => {
   const user = new User(req.body);
-
   try {
     await user.save();
     const token = await user.generateAuthToken();
@@ -35,7 +36,6 @@ router.post('/users/logout',auth, async (req,res) => {
        req.user.tokens = req.user.tokens.filter((token) => {
           return token.token !== req.token;
        })
-
        await req.user.save();
        return res.send("logout success");
    } catch(e) {
@@ -57,21 +57,6 @@ router.get("/users/me",auth, async (req, res) => {
     return res.send(req.user);
 });
 
-router.get("/users/:id", async (req, res) => {
-  const _id = req.params.id;
-
-  try {
-    const user = await User.findById(_id);
-
-    if (!user) {
-      return res.status(404).send();
-    }
-
-    res.send(user);
-  } catch (e) {
-    res.status(500).send();
-  }
-});
 
 router.patch("/users/me",auth, async (req, res) => {
   const updates = Object.keys(req.body);
@@ -79,17 +64,13 @@ router.patch("/users/me",auth, async (req, res) => {
   const isValidOperation = updates.every((update) =>
     allowedUpdates.includes(update)
   );
-
   if (!isValidOperation) {
     return res.status(400).send({ error: "Invalid updates!" });
   }
-
   try {
     const user = req.user;
-
     updates.forEach((update) => (user[update] = req.body[update]));
     await user.save();
-
     return res.send(user);
   } catch (e) {
     res.status(400).send(e);
@@ -104,5 +85,52 @@ router.delete("/users/me",auth, async (req, res) => {
        res.status(500).send();
   }
 });
+
+
+const upload = new multer({
+      limits: {
+        fileSize: 2000_000
+      },
+      fileFilter(req,file,callback) {
+         if(!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+            return callback(new Error('Please Upload An Image..'));
+         }
+         callback(undefined,true);
+      }
+  });
+
+// upload profile picture..
+router.post('/users/me/avatar',auth, upload.single('avatar'), async (req,res) => {
+     const buffer = await sharp(req.file.buffer).resize({width:250,height:250}).png().toBuffer();
+     req.user.avatar = buffer;
+     await req.user.save();
+     res.send("uploaded pic success");
+}, (err,req,res,next) => {
+   res.status(400).send({err:err.message})
+})
+
+// delete profile picture..
+router.delete('/users/me/avatar',auth, async(req,res) => {
+    req.user.avatar = undefined;
+    await req.user.save();
+    return res.send("Avatar Deleted");
+})
+
+// fetch avatar by id
+router.get('/users/:id/avatar', async(req,res) => {
+  try  {
+    const user = await User.findById(req.params.id);
+    if(!user || !user.avatar) {
+      throw new Error();
+    }
+    // setting header for sending image
+    res.set('Content-Type','image/png');
+    return res.send(user.avatar);
+  } catch(e) {
+    return res.status(400).send("something went wrong");
+  }
+    
+
+})
 
 module.exports = router;
