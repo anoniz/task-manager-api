@@ -3,11 +3,13 @@ const multer = require('multer');
 const sharp = require('sharp');
 const User = require("../models/users");
 const auth = require("../middleware/auth");
+const { sendWelcomeEmail,sendCancellationEmail } = require('../utils/mail');
 
 router.post("/users", async (req, res) => {
   const user = new User(req.body);
   try {
     await user.save();
+    sendWelcomeEmail(user.email,user.name);
     const token = await user.generateAuthToken();
     res.status(201).send({ user, token });
   } catch (e) {
@@ -80,6 +82,7 @@ router.patch("/users/me",auth, async (req, res) => {
 router.delete("/users/me",auth, async (req, res) => {
   try {
        await req.user.remove();
+       sendCancellationEmail(req.user.email,req.user.name);
        res.send(req.user);
   } catch (e) {
        res.status(500).send();
@@ -111,9 +114,13 @@ router.post('/users/me/avatar',auth, upload.single('avatar'), async (req,res) =>
 
 // delete profile picture..
 router.delete('/users/me/avatar',auth, async(req,res) => {
-    req.user.avatar = undefined;
-    await req.user.save();
-    return res.send("Avatar Deleted");
+    if(req.user.avatar) {
+      req.user.avatar = undefined;
+      await req.user.save();
+      return res.send("Avatar Deleted");
+    }
+    return res.status(404).send("Avatar Not Found");
+
 })
 
 // fetch avatar by id

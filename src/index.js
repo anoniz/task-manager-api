@@ -1,7 +1,7 @@
 require("./db/mongoose");
 const express = require("express");
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT;
 const userRouter = require("./Routers/users");
 const taskRouter = require("./Routers/tasks");
 
@@ -20,25 +20,3 @@ app.get("/", (req, res) => {
 
 
 app.listen(port, () => console.log(`listening on port ${port}`));
-
-
-const multer = require('multer');
-
-
-const upload = new multer({
-  dest: 'images',
-  limits: {
-    fileSize: 2000_000
-  },
-  fileFilter(req,file,callback) {
-     if(!file.originalname.match(/\.(doc|docx)$/)) {
-        return callback(new Error('please upload a word document'));
-     }
-     callback(undefined,true);
-  }
-});
-
-app.post('/upload', upload.single('upload'), (req,res) => {
-
-     res.send("ok done");
-})

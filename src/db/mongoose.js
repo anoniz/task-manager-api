@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
+require('dotenv').config()
 
 mongoose.set('strictQuery', true);
-const connection = mongoose.connect('mongodb://127.0.0.1:27017/task-manager-api');
+const connection = mongoose.connect(process.env.CONNECTION_URL);
 
 connection.then(() => console.log("connected to db successfully"))
 .catch((err) => console.log(err));
